@@ -1,0 +1,67 @@
+#include "HL1606stripPWM.h"
+// This library uses Timer 2 for PWM counting and 3 * numLEDs bytes of RAM
+// and Arduino pins 11 & 13 (Mega, 51 & 52)
+
+#define NUM_COLS 8
+#define NUM_ROWS 8
+#define NUM_UNITS 64
+
+#define LATCH_PIN 10
+
+HL1606stripPWM strip = HL1606stripPWM(NUM_UNITS, LATCH_PIN); 
+
+char serialBytes[NUM_COLS];
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println("hello!");
+  strip.setPWMbits(3);
+  strip.setSPIdivider(32);
+  strip.setCPUmax(70);    // 70% is what we start at
+  strip.begin();
+
+}
+
+int red = random(256); 
+int green = random(256); 
+int blue = random(256); 
+void loop() {
+  
+  randomSeed(analogRead(0));
+
+  int randomWalk = 2;
+  red += random(randomWalk + randomWalk + 1) - randomWalk;
+  green += random(randomWalk + randomWalk + 1) - randomWalk;
+  blue += random(randomWalk + randomWalk + 1) - randomWalk;
+  red = constrain(red,0,255);
+  green = constrain(green,0,255);
+  blue = constrain(blue,0,255);
+    
+  if(Serial.available() > 0){
+
+    int bytesRead = Serial.readBytesUntil('\n', serialBytes, NUM_COLS);
+    
+    if(bytesRead != 0){
+                   
+      //update leds to match received column heights    
+      for(int rowIndex = 0; rowIndex < NUM_ROWS; rowIndex++){
+        for(int colIndex = 0; colIndex < NUM_COLS; colIndex++){
+          //alternate rows are reversed in direction, this calculates their strip position
+          int stripIndex = (rowIndex%2==0 ? (rowIndex * NUM_COLS) + colIndex : ((rowIndex + 1) * NUM_COLS) - (colIndex + 1));
+          //lights should be lit up to but not including the magnitude sent for this frequency column
+          //invert rowIndex, otherwise upside down
+          if((NUM_ROWS - (rowIndex + 1)) < int(serialBytes[colIndex])){
+            strip.setLEDcolorPWM(stripIndex, red, green, blue);            
+          }
+          else{
+            strip.setLEDcolorPWM(stripIndex, 0, 0, 0);            
+          }
+        }
+        Serial.println();
+      }        
+    }
+    
+  } 
+  
+}
+
